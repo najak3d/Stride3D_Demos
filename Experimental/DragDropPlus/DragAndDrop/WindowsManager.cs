@@ -21,6 +21,7 @@ namespace DragAndDrop
         private int _windowId = 1;
         private int _cubesCount = 100;
         private int _totalCubes;
+        private TextBlock? _fpsText;
 
         public override void Start()
         {
