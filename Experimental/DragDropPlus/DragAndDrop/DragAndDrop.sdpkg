@@ -15,4 +15,6 @@ OutputGroupDirectories: {}
 ExplicitFolders: []
 Bundles: []
 TemplateFolders: []
-RootAssets: []
+RootAssets:
+    - 1eddabed-b75e-4c92-89d6-6dfa4a96d502:Animations/Run
+    - 62b3d000-401e-4ecb-bc7f-38e46e2dcf76:Models/mannequinModel
