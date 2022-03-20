@@ -1,9 +1,13 @@
+using System.Collections.Generic;
 using Stride.Core.Mathematics;
 using Stride.Engine;
 using Stride.Graphics;
 using Stride.UI;
 using Stride.UI.Controls;
 using System.Linq;
+
+using SR = Stride.Rendering;
+using SA = Stride.Animations;
 
 namespace DragAndDrop
 {
@@ -48,6 +52,12 @@ namespace DragAndDrop
             _textBlock.Margin = new Thickness(10, 140, 0, 0);
 
             canvas.Children.Add(_textBlock);
+
+			_fpsText = GetTextBlock("0 FPS");
+			_fpsText.Margin = new Thickness(10, 170, 0, 0);
+			BasicCameraController.OnFpsUpdated += (fps) => { _fpsText.Text = fps.ToString("#.0") + " : " + NumChicks; };
+
+			canvas.Children.Add(_fpsText);
 
             return canvas;
         }
@@ -101,6 +111,19 @@ namespace DragAndDrop
 
         private void GenerateCubes(int count)
         {
+			if (loadedMannequinModel == null)
+			{
+				SR.Model loadedMannequinModel2;
+				this.Entity.Add(new GameProfiler());
+				loadedMannequinModel = Content.Load<SR.Model>("Models/mannequinModel");
+				loadedMannequinModel2 = Content.Load<SR.Model>("Models/mannequinModel");
+				_runClip = Content.Load<SA.AnimationClip>("Animations/Run");
+			}
+			for (int i = 0; i < 20; i++)
+				AddChick();
+
+			return;
+
             if (_cubesGenerator is null) return;
 
             for (int i = 0; i < count; i++)
@@ -110,5 +133,39 @@ namespace DragAndDrop
 
             _totalCubes += count;
         }
-    }
+
+		private void AddChick()
+		{
+			NumChicks++;
+
+			// Create a new model component that references the loaded mannequin model
+			var modelComponent = new ModelComponent(loadedMannequinModel);
+
+			// Get a random position near the center of the scene
+			var randomPosition = new Vector3(random.Next(-40, 0), 0, random.Next(0, 40));
+
+			// Create a new entity and attach a model component 
+			var entity = new Entity(randomPosition, "My new entity with a model component");
+			entity.Add(modelComponent);
+
+			var ac = new AnimationComponent();
+			ac.Animations.Add("Run", _runClip);
+			entity.Add(ac);
+
+			// Add the new entity to the current tutorial scene
+			Entity.Scene.Entities.Add(entity);
+
+			_lastAC.Add(ac);
+
+			// We add the spawned entities to a stack to keep track of them
+			//spawnedEntities.Push(entity);
+		}
+
+		static public int NumChicks;
+		private Stride.Animations.AnimationClip _runClip;
+		private System.Random random = new System.Random();
+		private SR.Model loadedMannequinModel = null;
+		static public List<AnimationComponent> _lastAC = new List<AnimationComponent>();
+
+	}
 }

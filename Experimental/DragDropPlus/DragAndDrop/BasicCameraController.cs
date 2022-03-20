@@ -51,8 +51,43 @@ namespace DragAndDrop
             }
         }
 
+        private int _fpsStart;
+        private int _fpsEnd;
+        private int _updatesSinceStart;
+
+        static public event Action<float> OnFpsUpdated;
+
         public override void Update()
         {
+            var _lastAC = WindowsManager._lastAC;
+
+            foreach (var ac in _lastAC)
+            {
+                ac.Play("Run");
+            }
+            _lastAC.Clear();
+
+
+            int ticks = System.Environment.TickCount;
+            if (ticks > _fpsEnd)
+			{
+                if (_fpsStart != 0)
+				{
+                    float sec = 0.001f * (ticks - _fpsStart);
+                    float fps = _updatesSinceStart / sec;
+                    OnFpsUpdated?.Invoke(fps);
+				}
+                _updatesSinceStart = 0;
+                _fpsStart = ticks;
+                _fpsEnd = ticks + 1000;
+			}
+            _updatesSinceStart++;
+
+            if (Input.IsKeyPressed(Keys.P))
+            {
+                Stride.Physics.Simulation.DisableSimulation = !Stride.Physics.Simulation.DisableSimulation;
+            }
+
             ProcessInput();
             UpdateTransform();
         }
