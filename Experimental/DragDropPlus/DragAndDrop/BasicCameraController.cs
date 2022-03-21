@@ -59,13 +59,15 @@ namespace DragAndDrop
 
         public override void Update()
         {
+            // CODE HERE see Mannequins added by Input Handler on previous frame, and then starts their "Run" Animation here... BUT THIS CRASHES Stride!
             var _lastAC = WindowsManager._lastAC;
 
             foreach (var ac in _lastAC)
-            {
-                ac.Play("Run");
+            {   // comment out next line - and everything works fine.
+                //ac.Play("Run");
             }
-            _lastAC.Clear();
+            _lastAC.Clear(); 
+            // END OF Kludge code to start Animations "Run" ====================================
 
 
             int ticks = System.Environment.TickCount;
