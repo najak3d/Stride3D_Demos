@@ -1,0 +1,3 @@
+[submodule "stride"]
+	path = stride
+	url = https://github.com/stride3d/stride.git
