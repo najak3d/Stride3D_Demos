@@ -1,15 +1,30 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFrameworks>net6.0</TargetFrameworks>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="Stride.Engine" Version="4.1.0.1457-beta" />
-    <PackageReference Include="Stride.Video" Version="4.1.0.1457-beta" />
-    <PackageReference Include="Stride.Physics" Version="4.1.0.1457-beta" />
-    <PackageReference Include="Stride.Navigation" Version="4.1.0.1457-beta" />
-    <PackageReference Include="Stride.Particles" Version="4.1.0.1457-beta" />
-    <PackageReference Include="Stride.UI" Version="4.1.0.1457-beta" />
-    <PackageReference Include="Stride.Core.Assets.CompilerApp" Version="4.1.0.1457-beta" IncludeAssets="build;buildTransitive" />
-  </ItemGroup>
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<!--<Import Project="..\..\..\stride\sources\targets\Stride.props" />-->
+	<!-- NuGet resolved needed for StrideDefaultAssetsPlugin.LoadDefaultTemplates() -->
+	<Import Project="..\..\..\stride\sources\shared\Stride.NuGetResolver\Stride.NuGetResolver.projitems" Label="Shared" />
+	<PropertyGroup>
+		<TargetFramework>$(StrideEditorTargetFramework)</TargetFramework>
+		<StrideAssemblyProcessor>true</StrideAssemblyProcessor>
+		<StrideAssemblyProcessorOptions>--auto-module-initializer</StrideAssemblyProcessorOptions>
+		<StrideSkipAutoPack>false</StrideSkipAutoPack>
+		<IsPackable>true</IsPackable>
+	</PropertyGroup>
+	<PropertyGroup>
+		<TargetFrameworks>net6.0</TargetFrameworks>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\..\..\stride\sources\engine\Stride.Engine\Stride.Engine.csproj" />
+		<ProjectReference Include="..\..\..\stride\sources\engine\Stride.Navigation\Stride.Navigation.csproj" />
+		<ProjectReference Include="..\..\..\stride\sources\engine\Stride.Particles\Stride.Particles.csproj" />
+		<ProjectReference Include="..\..\..\stride\sources\engine\Stride.Physics\Stride.Physics.csproj" />
+		<ProjectReference Include="..\..\..\stride\sources\engine\Stride.UI\Stride.UI.csproj" />
+		<ProjectReference Include="..\..\..\stride\sources\engine\Stride.Video\Stride.Video.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Compile Include="..\..\..\stride\sources\shared\SharedAssemblyInfo.cs">
+			<Link>Properties\SharedAssemblyInfo.cs</Link>
+		</Compile>
+	</ItemGroup>
 </Project>

@@ -7,6 +7,9 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DragAndDrop", "DragAndDrop\DragAndDrop.csproj", "{E1C13906-CFAC-461A-91E0-DE1AC0BDD576}"
 EndProject
 Global
+	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		..\..\stride\sources\shared\Stride.NuGetResolver\Stride.NuGetResolver.projitems*{e1c13906-cfac-461a-91e0-de1ac0bdd576}*SharedItemsImports = 5
+	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
