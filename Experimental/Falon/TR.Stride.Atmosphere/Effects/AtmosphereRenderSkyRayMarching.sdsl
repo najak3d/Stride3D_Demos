@@ -1,0 +1,242 @@
+﻿
+
+shader AtmosphereRenderSkyRayMarching<bool FastSkyEnabled, bool FastAerialPerspectiveEnabled, bool RenderSunDisk, bool MultiScatteringApproximationEnabled, bool EnableClouds, MemberName AtmosphereGroup>
+: ShaderBase, AtmosphereFullscreenTriangle, Math, DepthBase, AtmosphereRenderSkyCommon<MultiScatteringApproximationEnabled, AtmosphereGroup>, AtmosphereGetSunLuminence<RenderSunDisk, AtmosphereGroup>
+{
+	cbuffer AtmosphereGroup
+	{
+		// Clouds
+		stage float Time = 0.0f;
+		stage float CloudScale = 0.0001f;
+		stage float CloudSpeed = 0.1f;
+		stage float Cloudiness = 0.8f;
+	};
+
+	struct RayMarchPixelOutputStruct
+	{
+		float4 Luminance;
+	};
+
+	RayMarchPixelOutputStruct _PSMain()
+	{
+		RayMarchPixelOutputStruct output = (RayMarchPixelOutputStruct)0;
+
+		float2 pixPos = streams.ShadingPosition.xy;
+		AtmosphereParameters Atmosphere = GetAtmosphereParameters();
+
+		float3 ClipSpace = float3((pixPos / float2(Resolution))*float2(2.0, -2.0) - float2(1.0, -1.0), 1.0);
+		float4 HPos = mul(float4(ClipSpace, 1.0), InvViewProjectionMatrix);
+
+		float3 WorldDir = normalize((HPos.xyz / HPos.w) - CameraPositionWS);
+		float3 WorldPos = (CameraPositionWS * ScaleToSkyUnit + float3(0, Atmosphere.BottomRadius, 0));
+
+		float DepthBufferValue = -1.0;
+
+		float viewHeight = length(WorldPos);
+		float3 L = 0;
+		DepthBufferValue = DepthStencil[pixPos].r;
+
+		if (FastSkyEnabled || RenderStage == 1)
+		{
+			if ((viewHeight < Atmosphere.TopRadius && DepthBufferValue == 1.0f ) || RenderStage == 1)
+			{
+				float2 uv;
+				float3 UpVector = normalize(WorldPos);
+				float viewZenithCosAngle = dot(WorldDir, UpVector);
+
+				float3 sideVector = normalize(cross(UpVector, WorldDir));		// assumes non parallel vectors
+				float3 forwardVector = normalize(cross(sideVector, UpVector));	// aligns toward the sun light but perpendicular to up vector
+				float2 lightOnPlane = float2(dot(SunDirection, forwardVector), dot(SunDirection, sideVector));
+				lightOnPlane = normalize(lightOnPlane);
+				float lightViewCosAngle = lightOnPlane.x;
+
+				bool IntersectGround = RaySphereIntersectNearest(WorldPos, WorldDir, float3(0, 0, 0), Atmosphere.BottomRadius) >= 0.0f;
+
+				SkyViewLutParamsToUv(Atmosphere, IntersectGround, viewZenithCosAngle, lightViewCosAngle, viewHeight, uv);
+
+				output.Luminance = float4(SkyViewLutTexture.SampleLevel(samplerLinearClamp, uv, 0).rgb, 1.0);
+
+				// Don't render sun in cube map as we dont want double specular reflections
+				if (RenderStage == 0)
+				{
+					LutTransmittanceParamsToUv(Atmosphere, viewHeight, viewZenithCosAngle, uv);
+					const float3 transmittance = TransmittanceLutTexture.SampleLevel(samplerLinearClamp, uv, 0).rgb;
+
+					output.Luminance.xyz += GetSunLuminance(WorldDir, transmittance);
+				}
+
+				if (IntersectGround && RenderStage == 1)
+				{
+					output.Luminance = float4(GroundAlbedo, 1);
+				}
+
+				if (EnableClouds)
+				{
+					float clouds = CalculateClouds(WorldDir);
+					output.Luminance.xyz = lerp(output.Luminance.xyz, 2, clouds);
+				}
+
+				return output;
+			}
+		}
+		else
+		{
+			if (DepthBufferValue == 1.0f)
+				L += GetSunLuminance(WorldDir, float3(1, 1, 1));
+		}
+
+		if (FastAerialPerspectiveEnabled)
+		{
+			ClipSpace = float3((pixPos / float2(Resolution)) * float2(2.0, -2.0) - float2(1.0, -1.0), DepthBufferValue);
+			float4 DepthBufferWorldPos = mul(float4(ClipSpace, 1.0), InvViewProjectionMatrix);
+			DepthBufferWorldPos /= DepthBufferWorldPos.w;
+
+			DepthBufferWorldPos *= ScaleToSkyUnit;
+
+			float tDepth = length(DepthBufferWorldPos.xyz - (WorldPos + float3(0.0, -Atmosphere.BottomRadius, 0.0)));
+			float Slice = AerialPerspectiveDepthToSlice(tDepth);
+			float Weight = 1.0;
+			if (Slice < 0.5)
+			{
+				// We multiply by weight to fade to 0 at depth 0. That works for luminance and opacity.
+				Weight = saturate(Slice * 2.0);
+				Slice = 0.5;
+			}
+			float w = sqrt(Slice * AerialPerspectiveSlicesAndDistancePerSlice.z);	// squared distribution
+
+			const float4 AP = Weight * AtmosphereCameraScatteringVolume.SampleLevel(samplerLinearClamp, float3(pixPos / float2(Resolution), w), 0);
+			L.rgb += AP.rgb;
+			float Opacity = AP.a;
+
+			output.Luminance = float4(L, Opacity);
+		}
+		else
+		{
+			// Move to top atmosphere as the starting point for ray marching.
+			// This is critical to be after the above to not disrupt above atmosphere tests and voxel selection.
+			if (!MoveToTopAtmosphere(WorldPos, WorldDir, Atmosphere.TopRadius))
+			{
+				// Ray is not intersecting the atmosphere		
+				output.Luminance = float4(GetSunLuminance(WorldDir, float3(1, 1, 1)), 1.0);
+				return output;
+			}
+
+			const bool ground = false;
+			const float SampleCountIni = 0.0f;
+			const bool VariableSampleCount = true;
+			const bool MieRayPhase = true;
+			const float AerialPespectiveDistanceScale = DepthBufferValue == 1.0f ? 1.0f : Atmosphere.AerialPespectiveViewDistanceScale;
+
+			SingleScatteringResult ss = IntegrateScatteredLuminance(pixPos, WorldPos, WorldDir, SunDirection, Atmosphere, ground, SampleCountIni, DepthBufferValue, VariableSampleCount, MieRayPhase, AerialPespectiveDistanceScale);
+
+			L += ss.L;
+			float3 throughput = ss.Transmittance;
+
+			const float Transmittance = dot(throughput, float3(1.0f / 3.0f, 1.0f / 3.0f, 1.0f / 3.0f));
+			output.Luminance = float4(L, 1.0f - Transmittance);
+		}
+
+		return output;
+	}
+
+	float TracePlane(float3 o, float3 d, float3 planeOrigin, float3 planeNormal)
+	{
+		return dot(planeNormal, (planeOrigin - o) / dot(planeNormal, d));
+	}
+
+	float2 Hash(float2 p)
+	{
+		p = float2(dot(p, float2(127.1, 311.7)), dot(p, float2(269.5, 183.3)));
+		return -1.0 + 2.0 * frac(sin(p) * 43758.5453123);
+	}
+
+	float Noise(in float2 p)
+	{
+		const float K1 = 0.366025404; // (sqrt(3)-1)/2;
+		const float K2 = 0.211324865; // (3-sqrt(3))/6;
+		float2 i = floor(p + (p.x + p.y) * K1);
+		float2 a = p - i + (i.x + i.y) * K2;
+		float2 o = (a.x > a.y) ? float2(1.0, 0.0) : float2(0.0, 1.0); //float2 of = 0.5 + 0.5*float2(sign(a.x-a.y), sign(a.y-a.x));
+		float2 b = a - o + K2;
+		float2 c = a - 1.0 + 2.0 * K2;
+		float3 h = max(0.5 - float3(dot(a, a), dot(b, b), dot(c, c)), 0.0);
+		float3 n = h * h * h * h * float3(dot(a, Hash(i + 0.0)), dot(b, Hash(i + o)), dot(c, Hash(i + 1.0)));
+		return dot(n, float3(70.0, 70.0, 70.0));
+	}
+
+	float CalculateClouds(float3 V)
+	{
+		const float3 o = CameraPositionWS.xyz;
+		const float3 d = V;
+		const float3 planeOrigin = float3(0, 1000, 0);
+		const float3 planeNormal = float3(0, -1, 0);
+
+		const float t = TracePlane(o, d, planeOrigin, planeNormal);
+
+		if (t < 0.0f)
+			return 0.0f;
+
+		const float3 cloudPos = o + d * t;
+		const float2 cloudUV = cloudPos.xz * CloudScale;
+		const float cloudTime = Time * CloudSpeed;
+		const float2x2 m = float2x2(1.6, 1.2, -1.2, 1.6);
+		const uint quality = 8;
+
+		// rotate uvs like a flow effect:
+		float flow = 0;
+		{
+			float2 uv = cloudUV * 0.5f;
+			float amount = 0.1;
+			for (uint i = 0; i < quality; i++)
+			{
+				flow += Noise(uv) * amount;
+				uv = mul(m, uv);
+				amount *= 0.4;
+			}
+		}
+
+		// Main shape:
+		float clouds = 0.0;
+		{
+			const float time = cloudTime * 0.2f;
+			float density = 1.1f;
+			float2 uv = cloudUV * 0.8f;
+			uv -= flow - time;
+			for (uint i = 0; i < quality; i++)
+			{
+				clouds += density * Noise(uv);
+				uv = mul(m, uv) + time;
+				density *= 0.6f;
+			}
+		}
+
+		// Detail shape:
+		{
+			float detail_shape = 0.0;
+			const float time = cloudTime * 0.1f;
+			float density = 0.8f;
+			float2 uv = cloudUV;
+			uv -= flow - time;
+			for (uint i = 0; i < quality; i++)
+			{
+				detail_shape += abs(density * Noise(uv));
+				uv = mul(m, uv) + time;
+				density *= 0.7f;
+			}
+			clouds *= detail_shape + clouds;
+			clouds *= detail_shape;
+		}
+
+		// lerp between "choppy clouds" and "uniform clouds". Lower cloudiness will produce choppy clouds, but very high cloudiness will switch to overcast unfiform clouds:
+		clouds = lerp(clouds * 9.0f * Cloudiness + 0.3f, clouds * 0.5f + 0.5f, pow(saturate(Cloudiness), 8));
+		clouds = saturate(clouds - (1 - Cloudiness)); // modulate constant cloudiness
+		clouds *= pow(1 - saturate(length(abs(cloudPos.xz * 0.00001f))), 16); //fade close to horizon
+
+		return clouds;
+	}
+
+    stage override void PSMain()
+    {   
+        streams.ColorTarget = _PSMain().Luminance;
+    }
+};

@@ -1,0 +1,23 @@
+!Package
+SerializedVersion: {Assets: 3.1.0.0}
+Meta:
+    Name: Falon.Game
+    Version: 1.0.0
+    Authors: []
+    Owners: []
+    RootNamespace: Falon
+    Dependencies: null
+AssetFolders:
+    -   Path: !dir ../Assets
+    -   Path: !dir Effects
+ResourceFolders: []
+OutputGroupDirectories: {}
+ExplicitFolders: []
+Bundles: []
+TemplateFolders: []
+RootAssets:
+    - 28b9bcd1-c2a6-41f9-a3f0-3d776b230dbb:NorthernChunk
+    - 3788a103-006f-4ba2-94f1-3d0735d1e7b0:WesternChunk
+    - 55cb4ae4-6b45-4ff8-8be2-0befbbb69e29:EasternChunk
+    - f0e0db60-a730-4bdf-a6e0-a54843b89286:SouthernChunk
+    - f167a887-01ba-4428-ab65-89714a22aa41:CentralChunk

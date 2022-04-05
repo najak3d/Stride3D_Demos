@@ -1,0 +1,8 @@
+!Texture
+Id: 3ec68ba0-8ac8-4388-ad73-8b35240de251
+SerializedVersion: {Stride: 2.0.0.0}
+Tags: []
+Source: !file ../../Resources/Textures/Aura01.png
+Type: !ColorTextureType
+    ColorKeyColor: {R: 255, G: 0, B: 255, A: 255}
+IsStreamable: false

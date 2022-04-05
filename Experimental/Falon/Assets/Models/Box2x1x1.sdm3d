@@ -1,0 +1,15 @@
+!Model
+Id: 70508aad-4f50-4de2-bded-f46ddf5f4f78
+SerializedVersion: {Stride: 2.0.0.0}
+Tags: []
+Source: !file ../../Resources/Models/Box2x1x1.fbx
+Skeleton: null
+PivotPosition: {X: 0.0, Y: 0.0, Z: 0.0}
+Materials:
+    2a4c62502d84612cd0bc56d6d0bc56d6:
+        Name: GridMT
+        MaterialInstance:
+            Material: 6a62c008-cc88-418c-a981-1b7b8cfbfdc8:Materials/GridMT
+Modifiers: {}
+~SourceHashes:
+    9f6d64ce3a3b1d59b859bd166ba9f9ad~../../Resources/Models/Box2x1x1.fbx: 471542316fa5ef69cb9b7b0eae1832a1
